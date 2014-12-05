@@ -1,0 +1,12 @@
+*.beam
+*.o
+*.orig
+*.plt
+*~
+.*.swp
+.DS_Store
+.eunit
+.rebar
+deps
+ebin
+erl_crash.dump
