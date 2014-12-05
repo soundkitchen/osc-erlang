@@ -5,6 +5,8 @@
     decode/1
   ]).
 
+-include("osc.hrl").
+
 encode({bundle, Time, Messages}) ->
   EncodedTime = encode_time(Time),
   EncodedMessages = encode_bundle(Messages, <<>>),
@@ -24,7 +26,7 @@ encode_bundle([Msg|Rest], Acc) ->
 encode_args(Args) ->
   encode_args(Args, <<>>, <<>>).
 encode_args([], Data, Types) ->
-  {Data, pad(<<$,, Types/binary, 0>>, 4)};
+  {Data, pad(<<$,, Types/binary, 0>>, ?PAD_LENGTH)};
 encode_args([Int|Rest], Acc, Types) when is_integer(Int) ->
   encode_args(Rest, <<Acc/binary, Int:32/integer>>, <<Types/binary, $i>>);
 encode_args([Float|Rest], Acc, Types) when is_float(Float) ->
@@ -68,10 +70,10 @@ encode_args([Raw|Rest], Acc, Types) when is_binary(Raw) ->
 
 encode_string(Str) when is_list(Str) orelse is_binary(Str) ->
   Bin = unicode:characters_to_binary(Str),
-  pad(<<Bin/binary, 0>>, 4).
+  pad(<<Bin/binary, 0>>, ?PAD_LENGTH).
 
 encode_blob(Bin) when is_binary(Bin) ->
-  pad(<<(byte_size(Bin)):32, Bin/binary>>, 4).
+  pad(<<(byte_size(Bin)):32, Bin/binary>>, ?PAD_LENGTH).
 
 encode_time(immediately) ->
   <<1:64>>;
@@ -103,7 +105,13 @@ decode_args(Bin, Types) ->
 decode_args(Bin, <<>>, Acc) ->
   {lists:reverse(Acc), Bin};
 decode_args(<<Int:32, Rest/binary>>, <<$i, Types/binary>>, Acc) ->
-  decode_args(Rest, Types, [Int|Acc]);
+  Int2 = case Int > ?BIT32_INT_MAX of
+    true ->
+      ?BIT32_INT_MAX - (Int bxor ?BIT32_INT_MAX);
+    false ->
+      Int
+  end,
+  decode_args(Rest, Types, [Int2|Acc]);
 decode_args(<<Float:32/float, Rest/binary>>, <<$f, Types/binary>>, Acc) ->
   decode_args(Rest, Types, [Float|Acc]);
 decode_args(Bin, <<$s, Types/binary>>, Acc) ->
@@ -144,14 +152,14 @@ decode_args(Bin, <<$], Types/binary>>, Acc) ->
 decode_string(Bin) ->
   decode_string(Bin, <<>>).
 decode_string(<<0, Data/binary>>, Acc) ->
-  L = pad_len(byte_size(Acc) + 1, 4),
+  L = pad_len(byte_size(Acc) + 1, ?PAD_LENGTH),
   <<_:L/integer-unit:8, Rest/binary>> = Data,
   {Acc, Rest};
 decode_string(<<Byte, Rest/binary>>, Acc) ->
   decode_string(Rest, <<Acc/binary, Byte>>).
 
 decode_blob(<<Length:32, Bytes:Length/binary, Rest/binary>>) ->
-  L = pad_len(Length + 4, 4),
+  L = pad_len(Length + ?PAD_LENGTH, ?PAD_LENGTH),
   <<_:L/integer-unit:8, Rest1/binary>> = Rest,
   {{blob, Bytes}, Rest1}.
 

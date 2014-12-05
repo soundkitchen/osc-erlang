@@ -1,0 +1,2 @@
+-define(PAD_LENGTH, 4).
+-define(BIT32_INT_MAX, 2147483647).
