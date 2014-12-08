@@ -5,6 +5,15 @@
     decode/1
   ]).
 
+-ifdef(TEST).
+-export([
+    encode_time/1,
+    decode_time/1,
+    pad/2,
+    pad_len/2
+  ]).
+-endif.
+
 -include("osc.hrl").
 
 encode({bundle, Time, Messages}) ->
@@ -90,7 +99,6 @@ decode(<<"#bundle", 0, Time:8/binary, Rest/binary>>) ->
 decode(Bin) ->
   {Address, Rest1} = decode_string(Bin),
   {<<$,, Types/binary>>, Rest2} = decode_string(Rest1),
-  io:format("~p, ~p~n", [Address, Types]),
   {Args, _} = decode_args(Rest2, Types),
   {message, Address, Args}.
 
@@ -173,7 +181,7 @@ decode_time(<<Seconds:32, Fractions:32>>) ->
 %% @doc Zero-pads the binary.
 %% @spec pad(Bytes::binary(), Pad::integer()) -> binary()
 pad(B, P) when is_binary(B), is_integer(P) ->
-  L = pad_len(size(B), P),
+  L = pad_len(byte_size(B), P),
   <<B/binary, 0:L/integer-unit:8>>.
 
 %% @doc Returns the length the binary has to be padded by.
